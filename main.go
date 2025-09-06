@@ -13,10 +13,6 @@ import (
 )
 
 type CallbackFunc (func(w http.ResponseWriter, r *http.Request))
-type KeyboardCommand struct {
-	Touches   []bool `json:"touches"`
-	Timestamp uint32 `json:"timestamp"`
-}
 
 var keyMap = map[rune]uint32{
 	'a': virtual_keyboard.KEY_A, 'b': virtual_keyboard.KEY_B, 'c': virtual_keyboard.KEY_C, 'd': virtual_keyboard.KEY_D, 'e': virtual_keyboard.KEY_E,
@@ -50,23 +46,7 @@ var addr = flag.String("addr", "0.0.0.0:8000", "http service address")
 var upgrader = websocket.Upgrader{}
 var mutex = sync.Mutex{}
 var latestDt = uint32(0)
-
-func doKeyboardWork(keyboard *virtual_keyboard.VirtualKeyboard, cmd KeyboardCommand) {
-	if cmd.Timestamp < latestDt {
-		return
-	}
-	for idx, t := range cmd.Touches {
-		k := keyMapRow[idx]
-
-		if t {
-			keyboard.PressKey(k)
-		} else {
-			keyboard.ReleaseKey(k)
-		}
-	}
-	latestDt = cmd.Timestamp
-
-}
+var lastTouches [12]bool
 
 func createControlEndpoint(keyboard *virtual_keyboard.VirtualKeyboard) CallbackFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -86,20 +66,28 @@ func createControlEndpoint(keyboard *virtual_keyboard.VirtualKeyboard) CallbackF
 				log.Println("invalid data length")
 				continue
 			}
-			timestamp := binary.LittleEndian.Uint32(data[:4])
-			var touches [12]bool
-			for i := 0; i < 12; i++ {
-				touches[i] = data[4+i] != 0
-			}
-			cmd := KeyboardCommand{
-				Touches:   touches[:],
-				Timestamp: timestamp,
-			}
-			log.Printf("recv: %+v", cmd)
 
-			mutex.Lock()
-			doKeyboardWork(keyboard, cmd)
-			mutex.Unlock()
+			timestamp := binary.LittleEndian.Uint32(data[:4])
+			if timestamp < latestDt {
+				continue
+			}
+
+			var touches [12]bool
+			for i := range 12 {
+				touches[i] = data[4+i] != 0
+
+				if lastTouches[i] != touches[i] {
+					if touches[i] {
+						keyboard.PressKey(keyMapRow[i])
+					} else {
+						keyboard.ReleaseKey(keyMapRow[i])
+					}
+				}
+			}
+
+			lastTouches = touches
+			latestDt = timestamp
+			log.Printf("recv: %+v", touches)
 		}
 	}
 }
