@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"flag"
 	"log"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 type CallbackFunc (func(w http.ResponseWriter, r *http.Request))
 type KeyboardCommand struct {
 	Touches   []bool `json:"touches"`
-	Timestamp uint64 `json:"timestamp"`
+	Timestamp uint32 `json:"timestamp"`
 }
 
 var keyMap = map[rune]uint32{
@@ -48,7 +49,7 @@ var keyMapRow = [12]uint32{
 var addr = flag.String("addr", "0.0.0.0:8000", "http service address")
 var upgrader = websocket.Upgrader{}
 var mutex = sync.Mutex{}
-var latestDt = uint64(0)
+var latestDt = uint32(0)
 
 func doKeyboardWork(keyboard *virtual_keyboard.VirtualKeyboard, cmd KeyboardCommand) {
 	if cmd.Timestamp < latestDt {
@@ -76,23 +77,29 @@ func createControlEndpoint(keyboard *virtual_keyboard.VirtualKeyboard) CallbackF
 		}
 		defer c.Close()
 		for {
-			var data KeyboardCommand
-			err := c.ReadJSON(&data)
+			_, data, err := c.ReadMessage()
 			if err != nil {
 				log.Println("read:", err)
 				break
 			}
-			log.Printf("recv: %+v", data)
+			if len(data) < 16 {
+				log.Println("invalid data length")
+				continue
+			}
+			timestamp := binary.LittleEndian.Uint32(data[:4])
+			var touches [12]bool
+			for i := 0; i < 12; i++ {
+				touches[i] = data[4+i] != 0
+			}
+			cmd := KeyboardCommand{
+				Touches:   touches[:],
+				Timestamp: timestamp,
+			}
+			log.Printf("recv: %+v", cmd)
 
 			mutex.Lock()
-			doKeyboardWork(keyboard, data)
+			doKeyboardWork(keyboard, cmd)
 			mutex.Unlock()
-
-			err = c.WriteMessage(websocket.TextMessage, []byte("OK"))
-			if err != nil {
-				log.Println("write:", err)
-				break
-			}
 		}
 	}
 }
