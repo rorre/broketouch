@@ -15,6 +15,7 @@
     "noImplicitOverride": true,
     "module": "preserve",
     "outDir": "dist",
+    "rootDir": "src",
     "sourceMap": true,
 
     /* If your code runs in the DOM: */
