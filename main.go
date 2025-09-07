@@ -6,26 +6,12 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"sync"
 
 	"github.com/bnema/libwldevices-go/virtual_keyboard"
 	"github.com/gorilla/websocket"
 )
 
 type CallbackFunc (func(w http.ResponseWriter, r *http.Request))
-
-var keyMap = map[rune]uint32{
-	'a': virtual_keyboard.KEY_A, 'b': virtual_keyboard.KEY_B, 'c': virtual_keyboard.KEY_C, 'd': virtual_keyboard.KEY_D, 'e': virtual_keyboard.KEY_E,
-	'f': virtual_keyboard.KEY_F, 'g': virtual_keyboard.KEY_G, 'h': virtual_keyboard.KEY_H, 'i': virtual_keyboard.KEY_I, 'j': virtual_keyboard.KEY_J,
-	'k': virtual_keyboard.KEY_K, 'l': virtual_keyboard.KEY_L, 'm': virtual_keyboard.KEY_M, 'n': virtual_keyboard.KEY_N, 'o': virtual_keyboard.KEY_O,
-	'p': virtual_keyboard.KEY_P, 'q': virtual_keyboard.KEY_Q, 'r': virtual_keyboard.KEY_R, 's': virtual_keyboard.KEY_S, 't': virtual_keyboard.KEY_T,
-	'u': virtual_keyboard.KEY_U, 'v': virtual_keyboard.KEY_V, 'w': virtual_keyboard.KEY_W, 'x': virtual_keyboard.KEY_X, 'y': virtual_keyboard.KEY_Y,
-	'z':  virtual_keyboard.KEY_Z,
-	'\n': virtual_keyboard.KEY_ENTER, '\t': virtual_keyboard.KEY_TAB, '[': virtual_keyboard.KEY_LEFTBRACE, ']': virtual_keyboard.KEY_RIGHTBRACE,
-	';': virtual_keyboard.KEY_SEMICOLON, '\'': virtual_keyboard.KEY_APOSTROPHE,
-	'\\': virtual_keyboard.KEY_BACKSLASH, ',': virtual_keyboard.KEY_COMMA, '.': virtual_keyboard.KEY_DOT, '/': virtual_keyboard.KEY_SLASH,
-	'1': virtual_keyboard.KEY_CAPSLOCK,
-}
 
 var keyMapRow = [12]uint32{
 	virtual_keyboard.KEY_CAPSLOCK,
@@ -44,7 +30,6 @@ var keyMapRow = [12]uint32{
 
 var addr = flag.String("addr", "0.0.0.0:8000", "http service address")
 var upgrader = websocket.Upgrader{}
-var mutex = sync.Mutex{}
 var latestDt = uint32(0)
 var lastTouches [12]bool
 
