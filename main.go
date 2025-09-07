@@ -28,6 +28,7 @@ var keyMap = map[rune]uint32{
 }
 
 var keyMapRow = [12]uint32{
+	virtual_keyboard.KEY_CAPSLOCK,
 	virtual_keyboard.KEY_A,
 	virtual_keyboard.KEY_S,
 	virtual_keyboard.KEY_D,
@@ -39,7 +40,6 @@ var keyMapRow = [12]uint32{
 	virtual_keyboard.KEY_L,
 	virtual_keyboard.KEY_SEMICOLON,
 	virtual_keyboard.KEY_APOSTROPHE,
-	virtual_keyboard.KEY_ENTER,
 }
 
 var addr = flag.String("addr", "0.0.0.0:8000", "http service address")
