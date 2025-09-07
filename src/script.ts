@@ -25,7 +25,7 @@ const WIDTH = window.innerWidth;
 const HEIGHT = window.innerHeight;
 const TOTAL_KEYS = 12;
 const WIDTH_PER_KEY = window.innerWidth / TOTAL_KEYS;
-const DOUBLE_THRESHOLD = 0.95;
+const DOUBLE_THRESHOLD = 0.05;
 const canvas = document.querySelector("canvas")!;
 const worker = new Worker("/dist/worker.js");
 const renderer = new Worker("/dist/renderer.js");
@@ -110,7 +110,11 @@ async function touchStartOrMove(ev: TouchEvent, isMove: boolean = false) {
     const btnX = touch.pageX / WIDTH_PER_KEY;
     const btn = Math.floor(btnX);
 
-    if (btnX - btn > DOUBLE_THRESHOLD) {
+    if (Math.abs(btn - 1 - btnX) < DOUBLE_THRESHOLD) {
+      // check the left button if in threshold
+      ongoingTouches.set(touch.identifier, [btn - 1, btn]);
+    } else if (Math.abs(btn + 1 - btnX) < DOUBLE_THRESHOLD) {
+      // check the right button if in threshold
       ongoingTouches.set(touch.identifier, [btn, btn + 1]);
     } else {
       ongoingTouches.set(touch.identifier, [btn]);
