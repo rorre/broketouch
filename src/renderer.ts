@@ -8,6 +8,7 @@ let canvas: OffscreenCanvas;
 onmessage = (evt) => {
   if (evt.data.cmd) {
     canvas = evt.data.canvas;
+    renderLines(evt.data.config);
     return;
   }
   requestAnimationFrame(() => renderFrame(evt.data.touches, evt.data.config));

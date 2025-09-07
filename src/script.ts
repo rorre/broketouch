@@ -47,7 +47,18 @@ function setup() {
   canvas.addEventListener("touchcancel", touchEnd);
 
   const offscreen = canvas.transferControlToOffscreen();
-  renderer.postMessage({ cmd: "init", canvas: offscreen }, [offscreen]);
+  renderer.postMessage(
+    {
+      cmd: "init",
+      canvas: offscreen,
+      config: {
+        width: WIDTH,
+        height: HEIGHT,
+        widthPerKey: WIDTH_PER_KEY,
+      },
+    },
+    [offscreen]
+  );
 
   hasSetup = true;
 }
