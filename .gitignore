@@ -1,2 +1,5 @@
 dist/
 broketouch
+
+cert/fingerprint.hex
+cert/localhost*

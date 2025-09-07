@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/binary"
 	"flag"
 	"log"
 	"net/http"
 
 	"github.com/bnema/libwldevices-go/virtual_keyboard"
-	"github.com/gorilla/websocket"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
+	"github.com/quic-go/webtransport-go"
 )
 
 type CallbackFunc (func(w http.ResponseWriter, r *http.Request))
@@ -29,20 +32,22 @@ var keyMapRow = [12]uint32{
 }
 
 var addr = flag.String("addr", "0.0.0.0:8000", "http service address")
-var upgrader = websocket.Upgrader{}
 var latestDt = uint32(0)
 var lastTouches [12]bool
 
-func createControlEndpoint(keyboard *virtual_keyboard.VirtualKeyboard) CallbackFunc {
+func createControlEndpoint(s *webtransport.Server, keyboard *virtual_keyboard.VirtualKeyboard) CallbackFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		c, err := upgrader.Upgrade(w, r, nil)
+		c, err := s.Upgrade(w, r)
 		if err != nil {
-			log.Print("upgrade:", err)
+			log.Printf("upgrading failed: %s", err)
+			w.WriteHeader(500)
 			return
 		}
-		defer c.Close()
+
+		ctx := context.TODO()
+
 		for {
-			_, data, err := c.ReadMessage()
+			data, err := c.ReceiveDatagram(ctx)
 			if err != nil {
 				log.Println("read:", err)
 				break
@@ -92,8 +97,30 @@ func main() {
 	}
 	defer keyboard.Close()
 
-	http.HandleFunc("/control", createControlEndpoint(keyboard))
-	http.Handle("/", http.FileServer(http.Dir(".")))
-	http.Handle("/dist/", http.StripPrefix("/dist/", http.FileServer(http.Dir("dist"))))
-	log.Fatal(http.ListenAndServe(*addr, nil))
+	mux := http.NewServeMux()
+
+	s := webtransport.Server{
+		H3: http3.Server{
+			Handler:   mux,
+			Addr:      *addr,
+			TLSConfig: &tls.Config{},
+			QUICConfig: &quic.Config{
+				EnableDatagrams: true,
+			},
+		},
+	}
+
+	mux.Handle("/", http.FileServer(http.Dir(".")))
+	mux.Handle("/dist/", http.StripPrefix("/dist/", http.FileServer(http.Dir("dist"))))
+	mux.HandleFunc("/control", createControlEndpoint(&s, keyboard))
+
+	go func() {
+		http.ListenAndServeTLS(*addr, "./cert/localhost.crt", "./cert/localhost.key", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			s.H3.SetQUICHeaders(w.Header())
+			mux.ServeHTTP(w, r)
+		}))
+	}()
+	log.Fatal(s.ListenAndServeTLS("./cert/localhost.crt", "./cert/localhost.key"))
+	// log.Fatal(s.ListenAndServe())
+	// log.Fatal(http.ListenAndServe(*addr, nil))
 }
