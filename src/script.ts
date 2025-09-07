@@ -25,6 +25,7 @@ const WIDTH = window.innerWidth;
 const HEIGHT = window.innerHeight;
 const TOTAL_KEYS = 12;
 const WIDTH_PER_KEY = window.innerWidth / TOTAL_KEYS;
+const DOUBLE_THRESHOLD = 0.95;
 const canvas = document.querySelector("canvas")!;
 const worker = new Worker("/dist/worker.js");
 const renderer = new Worker("/dist/renderer.js");
@@ -98,17 +99,22 @@ class BinarySemaphore {
 const semaphore = new BinarySemaphore();
 
 // ============================ touch related
-const ongoingTouches = new Map<number, number>();
+const ongoingTouches = new Map<number, number[]>();
 async function touchStartOrMove(ev: TouchEvent, isMove: boolean = false) {
   await semaphore.acquire();
   const touches = ev.changedTouches;
 
   for (const touch of touches) {
     if (isMove && !ongoingTouches.has(touch.identifier)) continue;
-    ongoingTouches.set(
-      touch.identifier,
-      Math.floor(touch.pageX / WIDTH_PER_KEY)
-    );
+
+    const btnX = touch.pageX / WIDTH_PER_KEY;
+    const btn = Math.floor(btnX);
+
+    if (btnX - btn > DOUBLE_THRESHOLD) {
+      ongoingTouches.set(touch.identifier, [btn, btn + 1]);
+    } else {
+      ongoingTouches.set(touch.identifier, [btn]);
+    }
   }
 
   onUpdate();
@@ -127,8 +133,7 @@ async function touchEnd(ev: TouchEvent) {
 function getCurrentTouches() {
   const touches: boolean[] = new Array(TOTAL_KEYS).fill(false);
   for (const touch of ongoingTouches.values()) {
-    const idx = Math.min(touch, 11);
-    touches[idx] = true;
+    touch.forEach((idx) => (touches[idx] = true));
   }
   return touches;
 }
