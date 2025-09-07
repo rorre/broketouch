@@ -1,3 +1,26 @@
+// ============================ utils
+function isEqual(self: any[], other: any[]) {
+  // if the other array is a falsy value, return
+  if (!other) return false;
+  // if the argument is the same array, we can be sure the contents are same as well
+  if (other === self) return true;
+  // compare lengths - can save a lot of time
+  if (self.length != other.length) return false;
+
+  for (let i = 0, l = self.length; i < l; i++) {
+    // Check if we have nested arrays
+    if (self[i] instanceof Array && other[i] instanceof Array) {
+      // recurse into the nested arrays
+      if (!self[i].equals(other[i])) return false;
+    } else if (self[i] != other[i]) {
+      // Warning - two different object instances will never be equal: {x:20} != {x:20}
+      return false;
+    }
+  }
+  return true;
+}
+
+// ============================ constants
 const WIDTH = window.innerWidth;
 const HEIGHT = window.innerHeight;
 const TOTAL_KEYS = 12;
@@ -6,6 +29,7 @@ const canvas = document.querySelector("canvas")!;
 const worker = new Worker("/dist/worker.js");
 const renderer = new Worker("/dist/renderer.js");
 
+// ============================ setup
 let hasSetup = false;
 
 function setup() {
@@ -27,29 +51,6 @@ function setup() {
 
   hasSetup = true;
 }
-
-function isEqual(self: any[], other: any[]) {
-  // if the other array is a falsy value, return
-  if (!other) return false;
-  // if the argument is the same array, we can be sure the contents are same as well
-  if (other === self) return true;
-  // compare lengths - can save a lot of time
-  if (self.length != other.length) return false;
-
-  for (let i = 0, l = self.length; i < l; i++) {
-    // Check if we have nested arrays
-    if (self[i] instanceof Array && other[i] instanceof Array) {
-      // recurse into the nested arrays
-      if (!self[i].equals(other[i])) return false;
-    } else if (self[i] != other[i]) {
-      // Warning - two different object instances will never be equal: {x:20} != {x:20}
-      return false;
-    }
-  }
-  return true;
-}
-// Hide method from for-in loops
-Object.defineProperty(Array.prototype, "equals", { enumerable: false });
 
 // ============================ sync mechanism
 class BinarySemaphore {
@@ -84,8 +85,8 @@ class BinarySemaphore {
 }
 
 const semaphore = new BinarySemaphore();
-// ============================ touch related
 
+// ============================ touch related
 const ongoingTouches = new Map<number, number>();
 async function touchStartOrMove(ev: TouchEvent, isMove: boolean = false) {
   await semaphore.acquire();
@@ -121,13 +122,6 @@ function getCurrentTouches() {
   return touches;
 }
 
-setup();
-
-window.addEventListener(
-  "orientationchange",
-  (e) => window.screen.orientation.type.startsWith("landscape") && setup()
-);
-
 let prevTouch: boolean[] = [];
 function onUpdate() {
   const currentTouch = getCurrentTouches();
@@ -148,3 +142,11 @@ function onUpdate() {
   prevTouch = currentTouch;
   semaphore.release();
 }
+
+// ============================ actual main
+setup();
+
+window.addEventListener(
+  "orientationchange",
+  (e) => window.screen.orientation.type.startsWith("landscape") && setup()
+);
